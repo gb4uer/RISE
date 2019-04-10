@@ -11,5 +11,5 @@ NYC taxi sim:
 cost model clean.R: model for estimating cost of simulation results
 epacycle_nyc.csv: EPA driving cycle for NYC, used in cost model clean.R
 taxi sim.R: RISE simulation script for taxi fleets
-tx_clean.RData: inputs for Manhattan simulation
-yt_1wk_select.RDS: cleaned trip data for 1 week of Yellow Cab trips in Manhattan
+
+example inputs for taxi sim.R available on request.
