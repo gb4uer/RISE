@@ -1,5 +1,5 @@
 # Load libraries and set working directory
-library(dplyr);library(rgdal);library(ggplot2);library(raster);library(rjson);library(geosphere);library(tidyverse);library(SearchTrees);library(osrm);library(h2o); library(stringr); library(gmapsdistance)
+library(dplyr);library(rgdal);library(ggplot2);library(raster);library(rjson);library(geosphere);library(tidyverse);library(SearchTrees);library(osrm);library(h2o); library(stringr); library(readtext); library(gmapsdistance)
 
 setwd("Bangalore data")
 
@@ -111,7 +111,8 @@ formfour2 <- formfour %>%
 # Run inner_join 
 
 joined2 <- inner_join(formfour2, routes2, by = "route_nodir") %>% 
-  dplyr::select(-schedule_id, -schedule_number, -form_four_id, -route_number_id, -trip_number, -route_name, -start_point, -end_point, -shift_type_id, -is_dread_trip, -org_name, -running_time, -break_time, -form_four_name) %>% 
-  mutate(duration = (joined2$end_time - joined2$start_time)/60)
+  dplyr::select(-schedule_id, -schedule_number, -form_four_id, -route_number_id, -trip_number, -route_name, -start_point, -end_point, -shift_type_id, -is_dread_trip, -org_name, -running_time, -break_time, -form_four_name) 
+
+joined2 <- mutate(duration = (joined2$end_time - joined2$start_time)/60)
 
 #write_csv(joined2, path = "joined.csv")
