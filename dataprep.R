@@ -1,7 +1,7 @@
 # Load libraries and set working directory
 library(dplyr);library(rgdal);library(ggplot2);library(raster);library(rjson);library(geosphere);library(tidyverse);library(SearchTrees);library(osrm);library(h2o); library(stringr); library(gmapsdistance)
 
-setwd("~/Documents/UC Berkeley/Spring 2019/LBL - EIS/Bangalore bus data/BMTC Route Network Data_April42019")
+setwd("Bangalore data")
 
 # Load in formfour data and add columns for each day of week 
 
