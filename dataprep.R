@@ -113,6 +113,6 @@ formfour2 <- formfour %>%
 joined2 <- inner_join(formfour2, routes2, by = "route_nodir") %>% 
   dplyr::select(-schedule_id, -schedule_number, -form_four_id, -route_number_id, -trip_number, -route_name, -start_point, -end_point, -shift_type_id, -is_dread_trip, -org_name, -running_time, -break_time, -form_four_name) 
 
-joined2 <- mutate(duration = (joined2$end_time - joined2$start_time)/60)
+trips_final <- joined2 %>% mutate(duration = (end_time - start_time)/60)
 
-#write_csv(joined2, path = "joined.csv")
+write_csv(trips_final, path = "joined.csv")
