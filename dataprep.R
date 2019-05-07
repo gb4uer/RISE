@@ -115,4 +115,4 @@ joined2 <- inner_join(formfour2, routes2, by = "route_nodir") %>%
 
 trips_final <- joined2 %>% mutate(duration = (end_time - start_time)/60)
 
-write_csv(trips_final, path = "joined.csv")
+#write_csv(trips_final, path = "joined.csv")
