@@ -1,7 +1,17 @@
 setwd('C:/Users/Gordon/Documents/RISE bus')
-load('actransit_init.RData') # includes trip data, relocation matrices, and charger distribution points
+load('actransit_init.RData')
 library(dplyr)
 library(SearchTrees)
+
+# includes trip data, relocation matrices, and charger distribution list
+# trip data names: day of month, pickup time as minute of day, pickup point, dropoff point, duration (min), distance (miles), max distance from dropoff to charge, range needed to serve trip and get to charger, ID
+# ggTime: list of 24 matrices, each with time (minutes) from each pickup (rows) to dropoff (columns)
+# ggDist: one matrix, same as above but with distance (miles)
+# chgDtbList: list of different charger distributions. names are in format [number of chargers]x[number of locations]. each vector represents the point locations of each charger in the distribution.
+# chgDistList: list with distance from each point to the nearest charger in each distribution
+
+
+#whichmin standardly returns an empty vector if all NAs but we want to return na. so this function corrects this. 
 
 whichMinNA <- function(v) {
   w <- which.min(v)
@@ -13,6 +23,7 @@ whichMinNA <- function(v) {
 }
 
 
+# NEEDS COMMENTS
 modpos <- function(x,n) {
   mod <- x%%n
   if(mod==0) {
@@ -22,7 +33,7 @@ modpos <- function(x,n) {
   }
 }
 
-
+# NEEDS COMMENTS 
 vehAssign <- function(mx,chgbool=NULL) {
   ch <- rep(NA,ncol(mx))
   mx[chgbool,] <- mx[chgbool,] + 100
@@ -36,6 +47,7 @@ vehAssign <- function(mx,chgbool=NULL) {
   return(ch)
 }
 
+#tripAssign should be called 'vehicle creation' bc it's assigning vehicles to trips that have not yet been assigned. tx is a data frame with all of the attributes that vehicles in the fleet should have (each row is a taxi). 
 
 vehCreate <- function(trp,bat0,maxid=0) {
   fleet <- NULL
@@ -59,6 +71,8 @@ vehCreate <- function(trp,bat0,maxid=0) {
 }
 
 
+#FleetRoute (prev. taxiF) is the main function. being called at every minute of the day. main purpose is to update tx. assign all trips to vehicles and assign vehicles to chargers.  
+
 fleetRoute <- function(t,fleet,chargers,chgAT,chgutil,bat0,chgSpd=0.5,waitMax=10,drel_max=40,chgthreshold=1) {
   # Debugging inputs:
   # 
@@ -69,11 +83,12 @@ fleetRoute <- function(t,fleet,chargers,chgAT,chgutil,bat0,chgSpd=0.5,waitMax=10
   veh2 <- NULL
   fleet$t_count <- fleet$t_count - 1 #update time counter
   fleet$chg_bool[fleet$t_count==0] <- 0 #available to charge
-  avail <- fleet$t_count<=10
+  avail <- fleet$t_count<=10 # this is the array of vehicles that are available to be assigned. t_count will only be positive if a vehicle is serving a trip. 
+
   vehA <- subset(fleet,avail)
   
   #Routing fleets in each minute-----------------------------------------
-  if(nrow(vehA)>0 & nrow(trp)>0) {
+  if(nrow(vehA)>0 & nrow(trp)>0) { #if there are buses available, 
     
     nveh <- sum(avail)
     nTrp <- nrow(trp)
@@ -81,9 +96,9 @@ fleetRoute <- function(t,fleet,chargers,chgAT,chgutil,bat0,chgSpd=0.5,waitMax=10
     ptP <- trp$start_pt
     
     # Creat matrices for times and distances between fleets and passengers
-    tMx <- time_mx_list[[h+1]][ptT,ptP] 
-    dMx <- dist_mx[ptT,ptP] 
-    
+    tMx <- time_mx_list[[h+1]][ptT,ptP]  #ggTime and ggDist are the full OD matrices we made during preprocessing. Now we're creating a matrix of all taxi locations and all pick up locations. tMx is an array where each row is a taxi (1:# availables), each column is a trip, and each entry is a travel time. 
+    dMx <- dist_mx[ptT,ptP] #dMx is the same, but with distances instead of travel times as the entries. 
+
     if(is.null(dim(tMx))) {
       tMx <- matrix(tMx,ncol=nTrp)
       dMx <- matrix(dMx,ncol=nTrp)
@@ -104,12 +119,12 @@ fleetRoute <- function(t,fleet,chargers,chgAT,chgutil,bat0,chgSpd=0.5,waitMax=10
     bat.lim <- vehA$range - matrix(trp$chgDist,nrow=nveh,ncol=nTrp,byrow=T) - falseChg
     
     # Take out unfeasible combinations
-    tMx[tMx + vehA$t_count>waitMax | dMx > drel_max] <- NA
+    tMx[tMx + vehA$t_count>waitMax | dMx > drel_max] <- NA #tMx is relocation time. if relocation time + time counter is greater than waiting time, remove.
     # tMx[dMx>bat.lim] <- NA
     
-    naMx <- !is.na(tMx)
+    naMx <- !is.na(tMx) #grab any tMx that are not na 
     
-    if(T %in% naMx) {
+    if(T %in% naMx) { #if there are any viable (not na) combinations, ...
       
       feasTrp <- which(colSums(naMx)!=0)
       feasveh <- which(rowSums(naMx)!=0)
@@ -124,7 +139,7 @@ fleetRoute <- function(t,fleet,chargers,chgAT,chgutil,bat0,chgSpd=0.5,waitMax=10
         bat.lim <- matrix(bat.lim,ncol=length(feasTrp))
       }
       
-      #Remove duplicate assignments
+      #Remove duplicate assignments #identify taxis that are currently charging. then uniMin function will give these vehicles the lowest priority for trip assignment. 
       chgbool <- vehA$chg_bool[feasveh]==1
       ch0 <- vehAssign(tMx + 200*as.numeric(dMx > bat.lim),chgbool)
       
@@ -158,16 +173,17 @@ fleetRoute <- function(t,fleet,chargers,chgAT,chgutil,bat0,chgSpd=0.5,waitMax=10
       chveh <- feasveh[ch0]
       
       #Update fleet with new assignments
-      fleet$d_pass[avail][chveh] <- fleet$d_pass[avail][chveh] + trp$dist
+      fleet$d_pass[avail][chveh] <- fleet$d_pass[avail][chveh] + trp$dist #subset available, chosen vehicles, then update the distance that's been traveled with passengers.  
+
       fleet$t_pass[avail][chveh] <- fleet$t_pass[avail][chveh] + trp$dur
-      fleet$d_trprel[avail][chveh] <- fleet$d_trprel[avail][chveh] + reloc.D
+      fleet$d_trprel[avail][chveh] <- fleet$d_trprel[avail][chveh] + reloc.D #distance traveled in relocation 
       fleet$t_trprel[avail][chveh] <- fleet$t_trprel[avail][chveh] + reloc.T
       
       #Update range
       fleet$range[avail][chveh] <- fleet$range[avail][chveh] -
         reloc.D -
         trp$dist -
-        falseChg
+        falseChg #what's the range after relocation, trip, and subtracting out false positive charge. 
       
       # Update chargers used by relocating fleets
       if(sum(fleet$chg_bool[avail][chveh]==1)) {
@@ -267,7 +283,7 @@ fleetRoute <- function(t,fleet,chargers,chgAT,chgutil,bat0,chgSpd=0.5,waitMax=10
   notcharging <- fleet$chg_bool==0
   vehA <- subset(fleet,notcharging & range/bat < chgthreshold) # Assign non-charging idle fleets to vehA
   
-  if(nrow(vehA)>0 & length(chargers)>0) {
+  if(nrow(vehA)>0 & length(chargers)>0) { #if there are available taxis and available chargers, ... 
     
     # Make matrix with distances and times to each available charger
     
@@ -278,7 +294,7 @@ fleetRoute <- function(t,fleet,chargers,chgAT,chgutil,bat0,chgSpd=0.5,waitMax=10
       dMx <- matrix(dMx,ncol=length(chargers))
     } 
     
-    # Bound by time charger has been available
+    # Bound by time charger has been available.    # same size matrices for amount of time chargers have been available and max charge that could be gained, respectively
     chgTime <- matrix(chgAT,nrow(vehA), length(chargers),byrow = T)
     
     maxCharge <- -1 * vehA$t_count - tMx # max time spent charging by newcomer
@@ -350,6 +366,8 @@ fleetRoute <- function(t,fleet,chargers,chgAT,chgutil,bat0,chgSpd=0.5,waitMax=10
   return(list(fleet,chargers,chgAT,chgutil))
 }
 
+#Elif: Seems like fleetSim is among other things a function for calling taxiF and doing clean up. 
+#loop that runs through each minute of the day and runs taxiF (does first minute separately to create the fleet that serves the first minute of trips); check battery range condition. 
 
 fleetSim <- function(bat0=50,nchg=500,nloc=0,power=100,eff=1.5,waitMax=10,drel_max=1000,simsave=F,file=NULL,time_start=0,time_stop=1439,start=1,end=1,chgthreshold=1) {
   # Initiate------
