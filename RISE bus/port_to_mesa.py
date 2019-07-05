@@ -17,7 +17,13 @@ def GetGeoDistanceFromLineString(line_string):
     #Something for getting spherical distances from linestrings of lat-long coordinates goes here
     return line_string.length
 
-feed_file = '/home/nclarke/winhome/repos/RISE/RISE Bus/ac_transit.zip'
+
+
+if len(sys.argv)!=2:
+  print("Syntax: {0} <GTFS File>".format(sys.argv[0]))
+  return -1;
+
+feed_file = sys.argv[1]
 
 # find the busiest date
 gtfs = ptg.load_geo_feed(feed_file)
