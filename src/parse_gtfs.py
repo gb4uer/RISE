@@ -18,15 +18,21 @@ def GetGeoDistanceFromLineString(line_string):
     #Something for getting spherical distances from linestrings of lat-long coordinates goes here
     return line_string.length
 
+def MatchColumn(df, colname):
+  """Turns start_x and end_x into x while ensuring they were the same"""
+  assert (df['start_'+colname]==df['end_'+colname]).all()
+  df = df.drop(columns=['end_'+colname])
+  df = df.rename(index=str, columns={'start_'+colname: colname})
+  return df
+
 
 
 if len(sys.argv)!=3:
   print("Syntax: {0} <GTFS File> <Output>".format(sys.argv[0]))
   sys.exit(-1)
 
-feed_file = sys.argv[1]
-
-feed_file = "data/gtfs_minneapolis.zip"
+feed_file   = sys.argv[1]
+output_file = sys.argv[2]
 
 #######################
 #Filter for service ids
@@ -59,13 +65,11 @@ trips = trips.sort_values(['trip_id','route_id','service_id','stop_sequence'])
 #Drop unneeded columns
 trips = trips.drop(columns=[
   'wheelchair_accessible',
-  'trip_headsign',
   'pickup_type',
   'drop_off_type', 
   'service_id',       #Trip ids include this as a substring
   'direction_id',
   'route_id',
-  'block_id',
   'stop_sequence'     #This is held by the sorted order
 ])
 
@@ -81,30 +85,20 @@ last_stops  = trips.groupby(by='trip_id').last().reset_index()
 first_stops = first_stops.merge(gtfs.stops[['stop_id','lat','lng']], how='left', on='stop_id')
 last_stops  = last_stops.merge (gtfs.stops[['stop_id','lat','lng']], how='left', on='stop_id')
 
-first_stops = first_stops.rename(index=str, columns={
-  "shape_id":       "start_shape_id",
-  "arrival_time":   "start_arrival_time",
-  "departure_time": "start_departure_time",
-  "stop_id":        "start_stop_id",
-  "lat":            "start_lat",
-  "lng":            "start_lng"
-})
-
-last_stops = last_stops.rename(index=str, columns={
-  "shape_id":       "end_shape_id",
-  "arrival_time":   "end_arrival_time",
-  "departure_time": "end_departure_time",
-  "stop_id":        "end_stop_id",
-  "lat":            "end_lat",
-  "lng":            "end_lng"
-})
-
 trips = first_stops.merge(last_stops, on="trip_id")
 
-#Clean up shape ids
-assert (trips['start_shape_id']==trips['end_shape_id']).all()
-trips = trips.drop(columns=["end_shape_id"])
-trips = trips.rename(index=str, columns={"start_shape_id": "shape_id"})
+to_rename = dict()
+for c in trips.columns:
+  if c.endswith("_x"):
+    to_rename[c] = "start_"+c.replace("_x","")
+  elif c.endswith("_y"):
+    to_rename[c] = "end_"+c.replace("_y","")
+
+trips = trips.rename(index=str,columns=to_rename)
+
+trips = MatchColumn(trips,'shape_id')
+trips = MatchColumn(trips,'block_id')
+trips = MatchColumn(trips,'trip_headsign')
 
 #Merge in distances
 gtfs.shapes['distance'] = gtfs.shapes['geometry'].map(GetGeoDistanceFromLineString)
@@ -114,4 +108,6 @@ trips = trips.drop(columns='shape_id')
 trips = trips.sort_values(['start_departure_time'])
 
 #Output
-trips.drop(columns=['trip_id']).to_csv(sys.argv[2], index=False)
+trips.drop(columns=['trip_id']).to_csv(output_file, index=False)
+
+trips.sort_values(["block_id", "start_departure_time"])[['trip_headsign','block_id','start_departure_time']]
