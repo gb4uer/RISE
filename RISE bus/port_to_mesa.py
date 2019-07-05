@@ -31,7 +31,7 @@ date, service_ids = ptg.read_busiest_date(feed_file) # this returns multiple day
 
 filtered_trips = gtfs.trips[gtfs.trips.service_id.isin(service_ids)]
 trip_stops = filtered_trips.merge(gtfs.stop_times, left_on='trip_id', right_on='trip_id')
-trip_stops = trip_stops.sort_values(['trip_id','route_id','service_id', 'stop_sequence'])
+trip_stops = trip_stops.sort_values(['trip_id','route_id','service_id','stop_sequence'])
 
 trips = trip_stops.iloc[0,0:11].to_frame().transpose() # create a final "trips" df, using only needed cols. 
 # Should probaly use col labels instead of index, as there are optional col names that could be included in other feeds. 
