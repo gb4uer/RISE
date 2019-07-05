@@ -1,9 +1,10 @@
-import partridge as ptg
+from functools import partial
 import pandas as pd
+import partridge as ptg
+import pyproj
 import shapely as shp
 import shapely.ops
-from functools import partial
-import pyproj
+import sys
 
 wgs_to_aea = partial(
     pyproj.transform,
