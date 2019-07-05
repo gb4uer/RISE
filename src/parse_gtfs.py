@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from functools import partial
+import numpy as np
 import pandas as pd
 import partridge as ptg
 import pyproj
@@ -109,10 +110,13 @@ trips = MatchColumn(trips,'trip_headsign')
 gtfs.shapes['distance'] = gtfs.shapes['geometry'].map(GetGeoDistanceFromLineString)
 trips = trips.merge(gtfs.shapes[['shape_id', 'distance']], how='left', on='shape_id')
 trips = trips.drop(columns='shape_id')
+trips['duration'] = trips['end_arrival_time']-trips['start_departure_time']
 
-trips = trips.sort_values(['start_departure_time'])
+#Get wait time between trips
+trips = trips.sort_values(["block_id", "start_arrival_time"])
+next_trip = trips.shift(-1).copy()
+trips['wait_time'] = next_trip['start_departure_time']-trips['end_arrival_time']
+trips['wait_time'][trips['block_id']!=next_trip['block_id']]=np.nan
 
 #Output
 trips.drop(columns=['trip_id']).to_csv(output_file, index=False)
-
-trips.sort_values(["block_id", "start_departure_time"])[['trip_headsign','block_id','start_departure_time']]
