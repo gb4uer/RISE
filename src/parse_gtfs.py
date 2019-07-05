@@ -87,6 +87,9 @@ last_stops  = last_stops.merge (gtfs.stops[['stop_id','lat','lng']], how='left',
 
 trips = first_stops.merge(last_stops, on="trip_id")
 
+#Now, we need to clean up the merge
+
+#Rename columns
 to_rename = dict()
 for c in trips.columns:
   if c.endswith("_x"):
@@ -96,6 +99,8 @@ for c in trips.columns:
 
 trips = trips.rename(index=str,columns=to_rename)
 
+#Ensure that start and end values are the same and reduce them to a single
+#column
 trips = MatchColumn(trips,'shape_id')
 trips = MatchColumn(trips,'block_id')
 trips = MatchColumn(trips,'trip_headsign')
