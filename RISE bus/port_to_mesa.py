@@ -38,6 +38,6 @@ for name, group in ts_by_tid:
 # there must be a better way than a loop for this?
 
 gtfs.shapes['distances'] = gtfs.shapes['geometry'].map(GetGeoDistanceFromLineString)
-pd.merge(trips, gtfs.shapes[['shape_id','distances']],left_on='shape_id', right_on='shape_id', how='inner')
+trips = gtfs.shapes[['shape_id','distances']].merge(trips)
 # this merge does not work. halp!
 trips.to_csv('/home/nclarke/winhome/repos/RISE/RISE Bus/trips.csv')
