@@ -119,4 +119,5 @@ trips['wait_time'] = next_trip['start_departure_time']-trips['end_arrival_time']
 trips['wait_time'][trips['block_id']!=next_trip['block_id']]=np.nan
 
 #Output
-trips.drop(columns=['trip_id']).to_csv(output_file, index=False)
+#trips.drop(columns=['trip_id']).to_csv(output_file, index=False)
+trips.to_pickle(output_file, compression='infer', protocol=4)
