@@ -1,101 +1,81 @@
 #!/usr/bin/env python3
+import math
+import numpy as np
 import pandas as pd
 import salabim as sim
+import sys
+
 
 #  based on SimPy example model
 class Bus(sim.Component):
     """
-    A Bus does things
-    
+    TODO
     """
-
-    def __init__(self, block_id, start_time, charging_rate=150, battery_capacity=100, km_per_kwh=4):
-        self.start_trip(block_id, time)
-        self.battery_capacity = battery_capacity
-        self.battery_level = battery_capacity
-        self.km_per_kwh = km_per_kwh
-        self.block_id = block_id
+    def __init__(self, start_time, end_time, trip_power, charging_rate, *args, **kwargs):
+        sim.Component.__init__(self, *args, **kwargs)
+        self.start_time    = start_time
+        self.end_time      = end_time
+        self.trip_power    = trip_power
         self.charging_rate = charging_rate
 
     def process(self):
+        """TODO
         """
-        Calculates a trip
-        """
-        self.get_bus()
-        while self.calculate_trip(start_time):
-            self.battery_level -= self.trip_power
-            yield self.hold(till=self.end_time)
-            self.return_bus() #This can't block
-            self.get_bus()
+        #Trip starts when this component is activated
+        yield self.request(bus_depot)
+        yield self.hold(till=self.end_time)
+        yield self.request((energy, self.trip_power))
+        yield self.hold(duration=self.trip_power/self.charging_rate*3600)
         self.release(bus_depot)
 
-    def calculate_trip(self, start_time):
-        """
-        """
-        self.start_time = start_time
-        self.my_trips = gtfs[gtfs.block_id==self.block_id & gtfs.start_arrival_time>=start_time]
-        if len(self.my_trips)==0:
-            return False
-        self.my_trips['cumdist'] = self.my_trips.distance.cumsum()
-        maxdist = self.battery_level*self.km_per_kwh-8 #so we can get to and from the depot. arbitrary atm. 
-        last_trip = self.my_trips[self.my_trips.cumdist<maxdist][-1]
-        self.end_time = last_trip.end_arrival_time
-        self.trip_power = maxdist/self.km_per_kwh
-        return True
-
-    def get_bus(self):
-        """
-        """
-        yield self.request(bus_depot)
-        self.battery_level = self.battery_capacity
-
-    def return_bus(self):
-        """
-        """
-        yield self.hold(duration=5) #Travel time to bus depot
-        yield self.request((energy,self.trip_power)) #Charge up the bus
-        charge_time = self.trip_power*self.charging_rate
-        yield self.hold(duration=charge_time) #Charge up
-        yield self.release(bus_depot) #Free the bus for use
 
 
+class Dispatcher:
+    def __init__(self, input_file, battery_cap_kwh=100, kwh_per_km=2, charging_rate=150):
+        self.gtfs            = pd.read_pickle(input_file, compression='infer')
+        self.gtfs            = self.gtfs.sort_values(['block_id', 'start_arrival_time'])
+        self.gtfs            = self.gtfs[~self.gtfs.trip_id.str.contains('RAIL')]
+        self.buses           = []
+        self.battery_cap_kwh = battery_cap_kwh
+        self.kwh_per_km      = kwh_per_km
+        self.charging_rate   = charging_rate
+        self.trip_seg_count  = 0
+        for block_id, group in self.gtfs.groupby(['block_id']):
+            self.schedule_block(block_id, group)
 
-class BusGenerator(sim.Component):
-    """
-    Generate new Bus.
-    """
-    # get a list of all the unique block ids
-    # generate a bus for each block_id
+    def schedule_block(self, block_id, trips):
+        trips = trips.copy()
+        distance_to_trip    = 5 #km. TODO: make this the maximum of the distance to the start and end
+        travel_time_to_trip = 0.2*3600 #seconds
+        maxdist             = self.battery_cap_kwh/self.kwh_per_km-2*distance_to_trip
+        trips['cumdist']  = trips.distance.cumsum()
+        trips['trip_seg'] = (trips.cumdist/1000/maxdist).astype(np.int)
+        # print(trips[['trip_headsign','start_arrival_time','distance','cumdist','trip_seg']])
+        for trip_seg, seg_group in trips.groupby('trip_seg'):
+            trip_power      = (seg_group.iloc[-1].cumdist-seg_group.iloc[0].cumdist+2*distance_to_trip)*self.kwh_per_km
+            trip_start_time = seg_group.iloc[0].start_arrival_time-travel_time_to_trip
+            trip_end_time   = seg_group.iloc[-1].end_arrival_time+travel_time_to_trip
+            new_bus         = Bus(trip_start_time,trip_end_time, trip_power, self.charging_rate, at=trip_start_time)
+            self.trip_seg_count += 1
 
-
-charged_buses = 0
-
-# Setup and start the simulation
-env = sim.Environment(trace=True)
-print("EV Bus Simulation")
-
-# import pre-processed GTFS trips
 
 if len(sys.argv)!=2:
   print("Syntax: {0} <Parsed GTFS File>".format(sys.argv[0]))
   sys.exit(-1)
 
 input_file = sys.argv[1]
-gtfs = pd.read_pickle(input_file, compression='infer')
 
-#Global resources
-energy = sim.Resourse("energy", anonymous=True)
-bus_depot = sim.Resource("buses", anonymous=True)
+env        = sim.Environment(trace=True) #time_unit='seconds'
+energy     = sim.Resource("energy", anonymous=True, capacity=999999)
+bus_depot  = sim.Resource("buses", capacity=999999)
+dispatcher = Dispatcher(input_file)
 
-CarGenerator()
+env.run()
 
-env.run(SIM_TIME)
-
-
-# fuel_pump.capacity.print_histogram()
-#fuel_pump.claimed_quantity.print_histogram()
-#fuel_pump.available_quantity.print_histogram()
-
-
-#gas_station.requesters().length.print_histogram()
-#gas_station.requesters().length_of_stay.print_histogram(30, 0, 10)
+bus_depot.claimed_quantity.print_histogram()
+energy.claimed_quantity.print_histogram()
+bus_depot.print_statistics()
+energy.print_statistics()
+bus_depot.print_info()
+energy.print_info()
+print('Trip seg count = {0}'.format(dispatcher.trip_seg_count))
