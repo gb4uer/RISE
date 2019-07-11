@@ -43,3 +43,5 @@ Thumbs.db
 *.csv
 temp/
 refs/
+*.pickle
+
