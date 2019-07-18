@@ -26,8 +26,6 @@ def MatchColumn(df, colname):
   df = df.rename(index=str, columns={'start_'+colname: colname})
   return df
 
-
-
 if len(sys.argv)!=3:
   print("Syntax: {0} <GTFS File> <Output>".format(sys.argv[0]))
   sys.exit(-1)
@@ -44,8 +42,14 @@ date, service_ids = ptg.read_busiest_date(feed_file)
 
 print("Service id chosen = {0}".format(service_ids))
 
+# filter for bus routes only
+
+bus_routes = gtfs.routes[gtfs.routes['route_type'] == 3]['route_id']
+gtfs.trips.update(gtfs.trips[gtfs.trips.route_id.isin(bus_routes)])
+
 #Select the service ids from that date. Note that trip_ids are still unique
 #because they include service_ids as a substring
+
 trips = gtfs.trips[gtfs.trips.service_id.isin(service_ids)]
 
 #Clean up stops data
@@ -67,7 +71,7 @@ trips = trips.sort_values(['trip_id','route_id','service_id','stop_sequence'])
 trips = trips.drop(columns=[
   'wheelchair_accessible',
   'pickup_type',
-  'drop_off_type', 
+  'drop_off_type',
   'service_id',       #Trip ids include this as a substring
   'direction_id',
   'route_id',

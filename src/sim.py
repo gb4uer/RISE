@@ -5,7 +5,6 @@ import pandas as pd
 import salabim as sim
 import sys
 
-
 #  based on SimPy example model
 class Bus(sim.Component):
     """
@@ -31,10 +30,9 @@ class Bus(sim.Component):
 
 
 class Dispatcher:
-    def __init__(self, input_file, battery_cap_kwh=100, kwh_per_km=2, charging_rate=150):
+    def __init__(self, input_file, battery_cap_kwh=200, kwh_per_km=1.2, charging_rate=150):
         self.gtfs            = pd.read_pickle(input_file, compression='infer')
         self.gtfs            = self.gtfs.sort_values(['block_id', 'start_arrival_time'])
-        self.gtfs            = self.gtfs[~self.gtfs.trip_id.str.contains('RAIL')]
         self.buses           = []
         self.battery_cap_kwh = battery_cap_kwh
         self.kwh_per_km      = kwh_per_km
