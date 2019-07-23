@@ -39,3 +39,9 @@
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+*.csv
+temp/
+refs/
+*.pickle
+
